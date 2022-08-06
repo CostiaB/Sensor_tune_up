@@ -5,6 +5,7 @@ library(formattable)
 library(shinydashboard)
 library(shinyjs)
 library(shinyWidgets)
+library(reshape2)
 
 work_dir <- "~/R_Shiny_proj/Sens_adj/"
 setwd(work_dir)
@@ -115,11 +116,20 @@ nom_adj_path <- paste(nom_dir, "nom_adj.csv", sep = "")
 nom_adj <- read.csv(nom_adj_path, header = T)
 req_nom <- as.character(nom_adj$nominals)
 
+new_ampl <-  Mod(sens$ampl / El_tr_fun(sens$freq, nom_old) *
+                  El_tr_fun(sens$freq,nom_new))
+
+sens_melt <-  cbind(sens, data.frame(new_ampl = new_ampl))
+colnames(sens_melt)[c(2, 4)] <- c('Original', 'Adjusted')
+
+sens_melt <- melt(sens_melt, id = c('freq', 'phase'),
+                  value.name = 'ampl', variable.name = 'type')
+
 
 
 
 ui <- fluidPage(
-  chooseSliderSkin("Modern"),
+  chooseSliderSkin(skin = "Flat", color = "#112446"),
   useShinyjs(),
   # Application title
   titlePanel("Sensor adjustment"),
@@ -129,10 +139,22 @@ ui <- fluidPage(
     sidebarPanel(width = 4,
                  lapply(unique(nom_adj$casc), casc_fun) 
     ),
-    mainPanel(plotlyOutput("distPlot"),
-              actionButton("default_nom", "Return default nominals"),
+    mainPanel(
+      plotlyOutput("distPlot", width = '100%'),
+      actionButton("default_nom", "Return default nominals"),
+              
               )
     ),
+  tags$style("
+      .shiny-input-container { 
+        margin-bottom: 30px; 
+        width: 100%;
+        left: 0
+      }
+      span { 
+          margin-left: 2px;
+      }
+  "),
 )
 
 
@@ -151,16 +173,17 @@ server <- function(input, output) {
                  })
   }
   
-  breaks <- sens$freq[1:19][seq(1, (length(sens$freq[1:18])),2)]
+  breaks <- c(0.01, 0.1, 1, 10, 100)
   button_id <-  unique(nom_adj$casc)
   box_names <- paste(button_id, '_box', sep = '')
+  
   
   # By default all sliders will be hidden 
   lapply(box_names, function(x) {shinyjs::hide(id = x)}) 
   # If press button col with cascade will be reveal
   lapply(button_id, hide_box_func) 
   # Button to return default nominals
-  observeEvent(input$default_nom, {lapply(req_nom, sidebar_fun, c(update = TRUE)) }) 
+  observeEvent(input$default_nom, {lapply(req_nom, sidebar_fun, c(update = TRUE))}) 
   # Characteristic plot
   output$distPlot <- renderPlotly(
     {
@@ -168,13 +191,18 @@ server <- function(input, output) {
         nom_new[i] <- as.numeric(input[[i]])
       }
       
+      sens_melt[sens_melt$type == 'Adjusted', 'ampl'] <-  Mod(sens$ampl /El_tr_fun(sens$freq, nom_old) *
+                        El_tr_fun(sens$freq,nom_new))
+      
+      
       plotly_plot <- function() {
-        ggplotly(ggplot(sens, aes(x = freq, y = ampl)) +
+        ggplotly(ggplot(sens_melt, aes(x = freq, y = ampl, color = type)) +
                    geom_line() +
-                   geom_line(aes(y = new_apl, colour='Adjusted')) +
-                   scale_x_continuous(name = 'Frequency, Hz', breaks = breaks) +
+                   scale_x_continuous(name = 'Frequency, Hz', 
+                                      breaks = breaks,
+                                      labels = comma) +
                    scale_y_continuous(name = 'Amplitude, counts') +
-                   theme_bw(base_size = 8)) %>% 
+                   theme_bw(base_size = 8) ) %>% 
           layout(margin=list(l = 70, b = - 1),
                  xaxis = list(type = 'log',
                               range = c(- 2, 2.5),
@@ -185,8 +213,7 @@ server <- function(input, output) {
                               tickfont = list(size = 12),
                               titlefont = list(size = 15))) 
       }
-      new_apl <-  Mod(sens$ampl / El_tr_fun(sens$freq, nom_old) *
-                    El_tr_fun(sens$freq,nom_new))
+
       plotly_plot()
     
     
