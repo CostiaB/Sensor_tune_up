@@ -1,15 +1,14 @@
 library(ggplot2)
 library(shiny)
 library(plotly)
+
+
 library(formattable)
 library(shinydashboard)
 library(shinyjs)
 library(shinyWidgets)
 library(reshape2)
 
-work_dir <- "~/R_Shiny_proj/Sens_adj/"
-setwd(work_dir)
-nom_dir <- "./!Device_No-417/"
 
 X <- function(p, C) { 1 / (p * C) }
 
@@ -22,25 +21,25 @@ Tran1 <- function(p, nominals) {
 
 Tran2 <-  function(p, nominals) {
   nom <- nominals
-  return_val <- (2 * nom['R5'] / nom['R3'] /
-                   (RII(nom['R7'], X(p, nom['C2'])) + 
-                     nom['R8'] + X(p, nom['C1']))) * 
-                 RII(nom['R11'], (RII(nom['R10'], nom['R9'] + nom['Rt1']) + 
-                                      X(p, nom['C3'])))
+  return_val <- (2 * nom["R5"] / nom["R3"] /
+                   (RII(nom["R7"], X(p, nom["C2"])) + 
+                     nom["R8"] + X(p, nom["C1"]))) * 
+                 RII(nom["R11"], (RII(nom["R10"], nom["R9"] + nom["Rt1"]) + 
+                                      X(p, nom["C3"])))
   return (return_val)
 }
   
 Tran3 <- function(p, nominals) {
   nom <- nominals
-  t1 <- RII(nom['R14'], nom['R15'] + nom['Rt3']) + X(p, nom['C4'])
-  t2 <- nom['R16'] + X(p, nom['C5'])
-  return_val <- RII(nom['R17'],
+  t1 <- RII(nom["R14"], nom["R15"] + nom["Rt3"]) + X(p, nom["C4"])
+  t2 <- nom["R16"] + X(p, nom["C5"])
+  return_val <- RII(nom["R17"],
                     RII(
-                        (RII(nom['R14'], nom['R15'] + nom['Rt3']) + X(p, nom['C4'])),
-                        (nom['R16'] + X(p, nom['C5']))
+                        (RII(nom["R14"], nom["R15"] + nom["Rt3"]) + X(p, nom["C4"])),
+                        (nom["R16"] + X(p, nom["C5"]))
                         )
                     ) / 
-                RII(nom['R12'], nom['R13'] + nom['Rt2'])
+                RII(nom["R12"], nom["R13"] + nom["Rt2"])
   
   return (return_val)
 }
@@ -88,42 +87,40 @@ sidebar_fun <- function(i, update=FALSE) {
 }
 
 casc_fun <- function(x) {
-    id <- paste(x, '_box', sep='')
-    box(width = '800px', 
+    id <- paste(x, "_box", sep="")
+    box(width = "800px", 
         actionButton(inputId = x,
                      label = x,
-                     width = '100%'),
+                     width = "100%"),
         wellPanel(id = id,
-                  lapply(nom_adj[nom_adj$casc == x, 'nominals'],
+                  lapply(nom_adj[nom_adj$casc == x, "nominals"],
                                      sidebar_fun)))
 }
 
 
 
-sens_path <- paste(nom_dir, "Y_495.dat", sep = "")
-nominals_path <- paste(nom_dir, "Y_495.mac", sep = "")
 
 sens <- as.data.frame(
-  read.table(sens_path, col.names = c("freq", "ampl", "phase")))
+  read.table("Y_495.dat", col.names = c("freq", "ampl", "phase")))
 
 nominals <- as.data.frame(
-  read.table(nominals_path, col.names = c("nominal", "value")))
+  read.table("Y_495.mac", col.names = c("nominal", "value")))
 
 nom_old <- setNames(nominals$value, nominals$nominal)
 nom_new <- setNames(nominals$value, nominals$nominal)
 
-nom_adj_path <- paste(nom_dir, "nom_adj.csv", sep = "")
-nom_adj <- read.csv(nom_adj_path, header = T)
+
+nom_adj <- read.csv("nom_adj.csv", header = T)
 req_nom <- as.character(nom_adj$nominals)
 
 new_ampl <-  Mod(sens$ampl / El_tr_fun(sens$freq, nom_old) *
                   El_tr_fun(sens$freq,nom_new))
 
 sens_melt <-  cbind(sens, data.frame(new_ampl = new_ampl))
-colnames(sens_melt)[c(2, 4)] <- c('Original', 'Adjusted')
+colnames(sens_melt)[c(2, 4)] <- c("Original", "Adjusted")
 
-sens_melt <- melt(sens_melt, id = c('freq', 'phase'),
-                  value.name = 'ampl', variable.name = 'type')
+sens_melt <- melt(sens_melt, id = c("freq", "phase"),
+                  value.name = "ampl", variable.name = "type")
 
 
 
@@ -140,7 +137,7 @@ ui <- fluidPage(
                  lapply(unique(nom_adj$casc), casc_fun) 
     ),
     mainPanel(
-      plotlyOutput("distPlot", width = '100%'),
+      plotlyOutput("distPlot", width = "100%"),
       actionButton("default_nom", "Return default nominals"),
               
               )
@@ -161,7 +158,7 @@ ui <- fluidPage(
 server <- function(input, output) {
   
   hide_box_func <- function(button_name) {
-    box_id <- paste(button_name, '_box', sep = '')
+    box_id <- paste(button_name, "_box", sep = "")
     observeEvent(input[[button_name]],
                  {
                    if(input[[button_name]] %% 2 == 0){
@@ -175,7 +172,7 @@ server <- function(input, output) {
   
   breaks <- c(0.01, 0.1, 1, 10, 100)
   button_id <-  unique(nom_adj$casc)
-  box_names <- paste(button_id, '_box', sep = '')
+  box_names <- paste(button_id, "_box", sep = "")
   
   
   # By default all sliders will be hidden 
@@ -191,24 +188,24 @@ server <- function(input, output) {
         nom_new[i] <- as.numeric(input[[i]])
       }
       
-      sens_melt[sens_melt$type == 'Adjusted', 'ampl'] <-  Mod(sens$ampl /El_tr_fun(sens$freq, nom_old) *
+      sens_melt[sens_melt$type == "Adjusted", "ampl"] <-  Mod(sens$ampl /El_tr_fun(sens$freq, nom_old) *
                         El_tr_fun(sens$freq,nom_new))
       
       
       plotly_plot <- function() {
         ggplotly(ggplot(sens_melt, aes(x = freq, y = ampl, color = type)) +
                    geom_line() +
-                   scale_x_continuous(name = 'Frequency, Hz', 
+                   scale_x_continuous(name = "Frequency, Hz", 
                                       breaks = breaks,
                                       labels = comma) +
-                   scale_y_continuous(name = 'Amplitude, counts') +
+                   scale_y_continuous(name = "Amplitude, counts") +
                    theme_bw(base_size = 8) ) %>% 
           layout(margin=list(l = 70, b = - 1),
-                 xaxis = list(type = 'log',
+                 xaxis = list(type = "log",
                               range = c(- 2, 2.5),
                               titlefont = list(size = 15),
                               tickfont = list(size = 12)),
-                 yaxis = list(type = 'log',
+                 yaxis = list(type = "log",
                               autorange = TRUE,
                               tickfont = list(size = 12),
                               titlefont = list(size = 15))) 
@@ -223,7 +220,6 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
-
 
 
 
